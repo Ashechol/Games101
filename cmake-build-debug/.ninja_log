@@ -1,8 +1,0 @@
-# ninja log v5
-1	175	6941810312667690	build.ninja	743c57db48aa1492
-4	1685	6941809470244469	source/HW1/CMakeFiles/Rasterizer.dir/Triangle.cpp.obj	3d4ea20be07738dc
-0	1613	6941759432431601	source/HW0/CMakeFiles/Transform.dir/main.cpp.obj	4637cdd5c0f78945
-1615	1810	6941759434407769	source/HW0/Transform.exe	c70389b6432c0937
-0	3403	6941809487408796	source/HW1/CMakeFiles/Rasterizer.dir/main.cpp.obj	db92fec9a90818e6
-7	3884	6941809492212476	source/HW1/CMakeFiles/Rasterizer.dir/rasterizer.cpp.obj	e0676c0fd3d47b2d
-3884	4592	6941809499280033	source/HW1/Rasterizer.exe	d51c907096bfede1
