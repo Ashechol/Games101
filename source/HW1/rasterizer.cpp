@@ -234,7 +234,7 @@ void rst::rasterizer::set_pixel(const Eigen::Vector3f& point, const Eigen::Vecto
     if (point.x() <= 0 || point.x() >= width ||
         point.y() <= 0 || point.y() >= height) return;
     auto ind = (height-point.y())*width + point.x();
-    std::cout << point.x() << " " << point.y() << std::endl;
+    // std::cout << point.x() << " " << point.y() << std::endl;
     // std::cout << "frame_buf_size: " << frame_buf.size() << std::endl;
     // std::cout << "ind: " << ind << std::endl;
     frame_buf[ind] = color;

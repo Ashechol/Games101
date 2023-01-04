@@ -19,11 +19,34 @@ Eigen::Matrix4f get_view_matrix(Eigen::Vector3f eye_pos)
     return view;
 }
 
+Eigen::Matrix4f get_rotation(Vector3f axis, float angle)
+{
+    float c = cos(angle);
+    float s = sin(angle);
+
+    axis.normalize();
+
+    Eigen::Matrix3f n;
+    n << 0, -axis.z(), axis.y(),
+         axis.z(), 0, -axis.x(),
+         -axis.y(), axis.x(), 0;
+
+    Eigen::Matrix3f rot3f = c * Eigen::Matrix3f::Identity() + (1 - c) * axis * axis.transpose() + s * n;
+
+    Eigen::Matrix4f rot4f = Eigen::Matrix4f::Identity();
+
+    rot4f.block<3, 3>(0, 0) = rot3f;
+
+    // std::cout << rot4f << std::endl;
+
+    return rot4f;
+}
+
 Eigen::Matrix4f get_model_matrix(float rotation_angle)
 {
     Eigen::Matrix4f model = Eigen::Matrix4f::Identity();
 
-    // input of function is radian,
+    // input of cos and sin function is radian,
     // so we need convert rotation_angle from degree to radian
     rotation_angle *= MY_PI / 180;
     float c = cos(rotation_angle);
@@ -31,10 +54,10 @@ Eigen::Matrix4f get_model_matrix(float rotation_angle)
 
     // Rotation matrices
     // Rotate around X-axis
-    model << 1, 0, 0, 0,
-             0, c, -s, 0,
-             0, s, c, 0,
-             0, 0, 0, 1;
+    // model << 1, 0, 0, 0,
+    //          0, c, -s, 0,
+    //          0, s, c, 0,
+    //          0, 0, 0, 1;
 
     // Rotate around Y-axis
     // model << c, 0, s, 0,
@@ -47,6 +70,9 @@ Eigen::Matrix4f get_model_matrix(float rotation_angle)
     //          s, c, 0, 0,
     //          0, 0, 1, 0,
     //          0, 0, 0, 1;
+
+    Vector3f axis(1, 1, 0);
+    model = get_rotation(axis, rotation_angle);
 
 
     return model;
