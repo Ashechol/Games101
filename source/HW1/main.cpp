@@ -23,9 +23,31 @@ Eigen::Matrix4f get_model_matrix(float rotation_angle)
 {
     Eigen::Matrix4f model = Eigen::Matrix4f::Identity();
 
-    // TODO: Implement this function
-    // Create the model matrix for rotating the triangle around the Z axis.
-    // Then return it.
+    // input of function is radian,
+    // so we need convert rotation_angle from degree to radian
+    rotation_angle *= MY_PI / 180;
+    float c = cos(rotation_angle);
+    float s = sin(rotation_angle);
+
+    // Rotation matrices
+    // Rotate around X-axis
+    model << 1, 0, 0, 0,
+             0, c, -s, 0,
+             0, s, c, 0,
+             0, 0, 0, 1;
+
+    // Rotate around Y-axis
+    // model << c, 0, s, 0,
+    //          0, 1, 0, 0,
+    //          -s, 0, c, 0,
+    //          0, 0, 0, 1;
+
+    // Rotate around Z-axis
+    // model << c, -s, 0, 0,
+    //          s, c, 0, 0,
+    //          0, 0, 1, 0,
+    //          0, 0, 0, 1;
+
 
     return model;
 }
@@ -33,13 +55,27 @@ Eigen::Matrix4f get_model_matrix(float rotation_angle)
 Eigen::Matrix4f get_projection_matrix(float eye_fov, float aspect_ratio,
                                       float zNear, float zFar)
 {
-    // Students will implement this function
-
     Eigen::Matrix4f projection = Eigen::Matrix4f::Identity();
 
-    // TODO: Implement this function
-    // Create the projection matrix for the given parameters.
-    // Then return it.
+    // From perspective to orthographic projection
+    Eigen::Matrix4f frustum;
+    frustum << zNear, 0, 0, 0,
+             0, zNear, 0, 0,
+             0, 0, zNear+zFar, -zNear * zFar,
+             0, 0, 1, 0;
+
+    eye_fov *= MY_PI / 180;
+    float height = -zNear * tan(eye_fov * 0.5f) * 2;
+    float width = height * aspect_ratio;
+
+    // Orthographic projection
+    Eigen::Matrix4f ortho;
+    ortho << 2 / height, 0, 0,0,
+            0, 2 / width, 0, 0,
+            0, 0, -2 / (zFar - zNear), (zNear + zFar) / (zFar-zNear),
+            0, 0, 0, 1;
+
+    projection = ortho * frustum;
 
     return projection;
 }
@@ -104,7 +140,7 @@ int main(int argc, const char** argv)
         cv::imshow("image", image);
         key = cv::waitKey(10);
 
-        std::cout << "frame count: " << frame_count++ << '\n';
+        // std::cout << "frame count: " << frame_count++ << '\n';
 
         if (key == 'a') {
             angle += 10;
@@ -112,6 +148,8 @@ int main(int argc, const char** argv)
         else if (key == 'd') {
             angle -= 10;
         }
+
+        angle -= 10;
     }
 
     return 0;

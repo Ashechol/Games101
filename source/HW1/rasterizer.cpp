@@ -64,6 +64,8 @@ void rst::rasterizer::draw_line(Eigen::Vector3f begin, Eigen::Vector3f end)
         for(i=0;x<xe;i++)
         {
             x=x+1;
+            // if (x==664)
+            //     std::cout << "warning" << std::endl;
             if(px<0)
             {
                 px=px+2*dy1;
@@ -229,9 +231,12 @@ int rst::rasterizer::get_index(int x, int y)
 void rst::rasterizer::set_pixel(const Eigen::Vector3f& point, const Eigen::Vector3f& color)
 {
     //old index: auto ind = point.y() + point.x() * width;
-    if (point.x() < 0 || point.x() >= width ||
-        point.y() < 0 || point.y() >= height) return;
+    if (point.x() <= 0 || point.x() >= width ||
+        point.y() <= 0 || point.y() >= height) return;
     auto ind = (height-point.y())*width + point.x();
+    std::cout << point.x() << " " << point.y() << std::endl;
+    // std::cout << "frame_buf_size: " << frame_buf.size() << std::endl;
+    // std::cout << "ind: " << ind << std::endl;
     frame_buf[ind] = color;
 }
 
