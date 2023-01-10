@@ -93,7 +93,12 @@ namespace rst
         std::vector<Eigen::Vector3f> frame_buf;
 
         std::vector<float> depth_buf;
-        int get_index(int x, int y);
+        std::vector<float> subsample_depth_buf;
+        std::vector<Eigen::Vector3f> subsample_color_buf;
+        int get_index(int x, int y) const;
+        int get_subsample_index(int x, int y, int k) const;
+        float get_sample_depth(int x, int y) const;
+        Vector3f get_sample_color(int x, int y) const;
 
         int width, height;
 

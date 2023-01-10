@@ -60,7 +60,7 @@ Eigen::Matrix4f get_projection_matrix(float eye_fov, float aspect_ratio, float d
 int main(int argc, const char** argv)
 {
     float angle = 0;
-    bool command_line = false;
+    bool command_line = true;
     std::string filename = "output.png";
 
     if (argc == 2)
