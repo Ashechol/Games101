@@ -71,7 +71,7 @@ Eigen::Matrix4f get_model_matrix(float rotation_angle)
     //          0, 0, 1, 0,
     //          0, 0, 0, 1;
 
-    Vector3f axis(1, 1, 0);
+    Vector3f axis(3, 3, 0);
     model = get_rotation(axis, rotation_angle);
 
 
@@ -79,9 +79,12 @@ Eigen::Matrix4f get_model_matrix(float rotation_angle)
 }
 
 Eigen::Matrix4f get_projection_matrix(float eye_fov, float aspect_ratio,
-                                      float zNear, float zFar)
+                                      float dNear, float dFar)
 {
     Eigen::Matrix4f projection = Eigen::Matrix4f::Identity();
+
+    // dNear and dFar are positive
+    float zNear = -dNear, zFar = -dFar;
 
     // From perspective to orthographic projection
     Eigen::Matrix4f frustum;
@@ -91,14 +94,14 @@ Eigen::Matrix4f get_projection_matrix(float eye_fov, float aspect_ratio,
              0, 0, 1, 0;
 
     eye_fov *= MY_PI / 180;
-    float height = -zNear * tan(eye_fov * 0.5f) * 2;
+    float height = abs(zNear) * tan(eye_fov * 0.5f) * 2;
     float width = height * aspect_ratio;
 
     // Orthographic projection
     Eigen::Matrix4f ortho;
-    ortho << 2 / height, 0, 0,0,
-            0, 2 / width, 0, 0,
-            0, 0, -2 / (zFar - zNear), (zNear + zFar) / (zFar-zNear),
+    ortho << 2 / width, 0, 0,0,
+            0, 2 / height, 0, 0,
+            0, 0, 2 / (zNear - zFar), (zNear + zFar) / (zFar-zNear),
             0, 0, 0, 1;
 
     projection = ortho * frustum;
@@ -175,7 +178,7 @@ int main(int argc, const char** argv)
             angle -= 10;
         }
 
-        angle -= 10;
+        // angle -= 10;
     }
 
     return 0;
