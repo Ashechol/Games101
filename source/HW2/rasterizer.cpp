@@ -134,12 +134,11 @@ void rst::rasterizer::rasterize_triangle(const Triangle& t) {
                                   {0.25, 0.75},
                                   {0.75, 0.25},
                                   {0.75, 0.75}};
-                int cnt = 0;
+                bool depth_test = false;
                 for (int k = 0; k < 4; k++)
                 {
                     if (!insideTriangle(x + x4[k].x(), y + x4[k].y(), t.v))
                         continue;
-                    cnt++;
 
                     // following code to get the interpolated z value.
                     auto [alpha, beta, gamma] = computeBarycentric2D(x + x4[k].x(), y + x4[k].y(), t.v);
@@ -153,10 +152,11 @@ void rst::rasterizer::rasterize_triangle(const Triangle& t) {
                     {
                         subsample_depth_buf[index] = z_interpolated;
                         subsample_color_buf[index] = t.getColor();
+                        depth_test = true;
                     }
                 }
 
-                if (cnt > 0)
+                if (depth_test)
                     set_pixel(Vector3f(x, y, 0), get_sample_color(i, j));
             }
             else
