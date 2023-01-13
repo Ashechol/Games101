@@ -6,7 +6,7 @@ include_directories("F:/WorkSpace/ThirdParty")
 
 # add_subdirectory(source/HW0)
 # add_subdirectory(source/HW1)
-# add_subdirectory(source/HW2)
-add_subdirectory(source/HW3)
+add_subdirectory(source/HW2)
+#add_subdirectory(source/HW3)
 add_executable(test source/test.cpp)
 

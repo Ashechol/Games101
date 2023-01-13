@@ -216,7 +216,7 @@ void rst::rasterizer::draw(std::vector<Triangle *> &TriangleList) {
         {
             vert.x() = 0.5*width*(vert.x()+1.0);
             vert.y() = 0.5*height*(vert.y()+1.0);
-            vert.z() = vert.z() * f1 + f2;
+            vert.z() = -vert.z() * f1 + f2;
         }
 
         for (int i = 0; i < 3; ++i)
@@ -259,15 +259,61 @@ static Eigen::Vector2f interpolate(float alpha, float beta, float gamma, const E
 //Screen space rasterization
 void rst::rasterizer::rasterize_triangle(const Triangle& t, const std::array<Eigen::Vector3f, 3>& view_pos) 
 {
-    // TODO: From your HW3, get the triangle rasterization code.
-    // TODO: Inside your rasterization loop:
-    //    * v[i].w() is the vertex view space depth value z.
-    //    * Z is interpolated view space depth for the current pixel
-    //    * zp is depth between zNear and zFar, used for z-buffer
+    auto& v = t.v;
+    auto& color = t.color;
+    auto& normal = t.normal;
+    auto& uv = t.tex_coords;
 
-    // float Z = 1.0 / (alpha / v[0].w() + beta / v[1].w() + gamma / v[2].w());
-    // float zp = alpha * v[0].z() / v[0].w() + beta * v[1].z() / v[1].w() + gamma * v[2].z() / v[2].w();
-    // zp *= Z;
+    int xMin = floor(std::min(v[0].x(), std::min(v[1].x(), v[2].x())));
+    int xMax = ceil(std::max(v[0].x(), std::max(v[1].x(), v[2].x())));
+    int yMin = floor(std::min(v[0].y(), std::min(v[1].y(), v[2].y())));
+    int yMax = ceil(std::max(v[0].y(), std::max(v[1].y(), v[2].y())));
+
+    for (int i = xMin; i < xMax; i++)
+    {
+        auto x = static_cast<float>(i);
+        for (int j = yMin; j < yMax; j++)
+        {
+            auto y = static_cast<float>(j);
+
+            auto [alpha, beta, gamma] = computeBarycentric2D(x + 0.5f, y + 0.5f, v);
+
+            if (alpha <= 0 || beta <= 0 || gamma <= 0) continue;
+
+            float reverseZ = 1.0f / (alpha / v[0].w() + beta / v[1].w() + gamma / v[2].w());
+
+            float interpolateZ =  alpha * v[0].z() / v[0].w() + beta * v[1].z() / v[1].w() +
+                                  gamma * v[2].z() / v[2].w();
+            interpolateZ *= reverseZ;
+
+            Vector3f interpolated_color = alpha * color[0]  / v[0].w() +
+                                          beta * color[1] / v[1].w() + gamma * color[2] / v[2].w();
+            interpolated_color *= reverseZ;
+
+            Vector3f interpolated_normal = alpha * normal[0]  / v[0].w() +
+                                           beta * normal[1] / v[1].w() + gamma * normal[2] / v[2].w();
+            interpolated_normal *= reverseZ;
+
+            Vector2f interpolated_texcoords = alpha * uv[0]  / v[0].w() +
+                                              beta * uv[1] / v[1].w() + gamma * uv[2] / v[2].w();
+            interpolated_texcoords *= reverseZ;
+
+
+            fragment_shader_payload payload( interpolated_color,
+                                             interpolated_normal.normalized(),
+                                             interpolated_texcoords,
+                                             texture ? &*texture : nullptr);
+
+            auto pixel_color = fragment_shader(payload);
+
+            int index = get_index(i, j);
+            if (interpolateZ < depth_buf[index])
+            {
+                depth_buf[index] = interpolateZ;
+                set_pixel(Vector2i(i, j), pixel_color);
+            }
+        }
+    }
 
     // TODO: Interpolate the attributes:
     // auto interpolated_color

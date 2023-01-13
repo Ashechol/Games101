@@ -47,10 +47,32 @@ Eigen::Matrix4f get_model_matrix(float angle)
     return translate * rotation * scale;
 }
 
-Eigen::Matrix4f get_projection_matrix(float eye_fov, float aspect_ratio, float zNear, float zFar)
+Eigen::Matrix4f get_projection_matrix(float eye_fov, float aspect_ratio, float dNear, float dFar)
 {
-    // TODO: Use the same projection matrix from the previous assignments
+    float zNear = -dNear;
+    float zFar = -dFar;
 
+    Eigen::Matrix4f projection;
+
+    Eigen::Matrix4f frustum;
+    frustum << zNear, 0, 0, 0,
+            0, zNear, 0, 0,
+            0, 0, zNear + zFar, -zNear * zFar,
+            0, 0, 1, 0;
+
+    eye_fov *= MY_PI / 360;
+    float height = tan(eye_fov) * abs(zNear) * 2;
+    float width = height * aspect_ratio;
+
+    Eigen::Matrix4f ortho;
+    ortho << 2 / width, 0, 0, 0,
+            0, 2 / height, 0, 0,
+            0, 0, 2 / (zNear-zFar), (zNear + zFar) / (zFar - zNear),
+            0, 0, 0, 1;
+
+    projection = ortho * frustum;
+
+    return projection;
 }
 
 Eigen::Vector3f vertex_shader(const vertex_shader_payload& payload)
@@ -247,10 +269,13 @@ int main(int argc, const char** argv)
 
     std::string filename = "output.png";
     objl::Loader Loader;
-    std::string obj_path = "../models/spot/";
+    std::string obj_path = "F:/WorkSpace/Games101/source/HW3/models/spot/";
 
     // Load .obj File
-    bool loadout = Loader.LoadFile("../models/spot/spot_triangulated_good.obj");
+    bool loadout = Loader.LoadFile(obj_path + "spot_triangulated_good.obj");
+    if (!loadout)
+        std::cout << "obj load failed!" << std::endl;
+
     for(auto mesh:Loader.LoadedMeshes)
     {
         for(int i=0;i<mesh.Vertices.size();i+=3)
@@ -358,6 +383,8 @@ int main(int argc, const char** argv)
         {
             angle += 0.1;
         }
+
+        angle += 10;
 
     }
     return 0;
