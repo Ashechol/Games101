@@ -53,7 +53,7 @@ static bool insideTriangle(float x, float y, const Vector3f* _v)
     // the point (x, y) is inside the triangle represented by _v[0], _v[1], _v[2]
     auto [alpha, beta, gamma] = computeBarycentric2D(x, y, _v);
 
-    return alpha > 0 && beta > 0 && gamma > 0;
+    return alpha >= 0 && beta >= 0 && gamma >= 0;
 }
 
 void rst::rasterizer::draw(pos_buf_id pos_buffer, ind_buf_id ind_buffer, col_buf_id col_buffer, Primitive type)
