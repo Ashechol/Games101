@@ -3,17 +3,13 @@
 //
 
 #include <iostream>
+#include <array>
 
 using namespace std;
 
 int main()
 {
-    int cnt = 3;
-    float rate = cnt / 4;
-    cout << rate << endl;
-
-    rate = cnt / 4.0;
-    cout << rate << endl;
-
+    int a[10];
+    array<int, 10> b = a;
     return 0;
 }

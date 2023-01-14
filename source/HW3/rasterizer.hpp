@@ -110,7 +110,7 @@ namespace rst
 
         std::vector<Eigen::Vector3f> frame_buf;
         std::vector<float> depth_buf;
-        int get_index(int x, int y);
+        int get_index(int x, int y) const;
 
         int width, height;
 

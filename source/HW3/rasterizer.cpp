@@ -240,28 +240,23 @@ void rst::rasterizer::draw(std::vector<Triangle *> &TriangleList) {
     }
 }
 
-// static Eigen::Vector3f interpolate(float alpha, float beta, float gamma, const Eigen::Vector3f& vert1, const Eigen::Vector3f& vert2, const Eigen::Vector3f& vert3, float weight)
-// {
-//     return (alpha * vert1 + beta * vert2 + gamma * vert3) / weight;
-// }
-//
-// static Eigen::Vector2f interpolate(float alpha, float beta, float gamma, const Eigen::Vector2f& vert1, const Eigen::Vector2f& vert2, const Eigen::Vector2f& vert3, float weight)
-// {
-//     auto u = (alpha * vert1[0] + beta * vert2[0] + gamma * vert3[0]);
-//     auto v = (alpha * vert1[1] + beta * vert2[1] + gamma * vert3[1]);
-//
-//     u /= weight;
-//     v /= weight;
-//
-//     return Eigen::Vector2f(u, v);
-// }
-
-static Vector3f toVec3f(const Vector4f& v)
+static Eigen::Vector3f interpolate(float alpha, float beta, float gamma, const Eigen::Vector3f& vert1, const Eigen::Vector3f& vert2, const Eigen::Vector3f& vert3, float weight)
 {
-    Vector3f vec3f{v.x(), v.y(), v.z()};
-    return vec3f;
+    return (alpha * vert1 + beta * vert2 + gamma * vert3) / weight;
 }
 
+static Eigen::Vector2f interpolate(float alpha, float beta, float gamma, const Eigen::Vector2f& vert1, const Eigen::Vector2f& vert2, const Eigen::Vector2f& vert3, float weight)
+{
+    auto u = (alpha * vert1[0] + beta * vert2[0] + gamma * vert3[0]);
+    auto v = (alpha * vert1[1] + beta * vert2[1] + gamma * vert3[1]);
+
+    u /= weight;
+    v /= weight;
+
+    return Eigen::Vector2f(u, v);
+}
+
+// perspective-correct interpolation
 template <typename T>
 T interpolate(std::tuple<float, float, float>baryCoords, const float* w, float reverse, const T* attribs)
 {
@@ -276,8 +271,8 @@ T interpolate(std::tuple<float, float, float>baryCoords, const float* w, float r
 void rst::rasterizer::rasterize_triangle(const Triangle& t, const std::array<Eigen::Vector3f, 3>& view_pos) 
 {
     const Vector4f (&v)[3] = t.v;
-    const float depth[3] = {t.v[0].z(), t.v[1].z(), t.v[2].z()};
-    const float w[3] = {t.v[0].w(), t.v[1].w(), t.v[2].w()};
+    const float depth[3] = {v[0].z(), v[1].z(), v[2].z()};
+    const float w[3] = {v[0].w(), v[1].w(), v[2].w()};
 
     int xMin = floor(std::min(v[0].x(), std::min(v[1].x(), v[2].x())));
     int xMax = ceil(std::max(v[0].x(), std::max(v[1].x(), v[2].x())));
@@ -298,39 +293,37 @@ void rst::rasterizer::rasterize_triangle(const Triangle& t, const std::array<Eig
             // vertex should pass the inside test!
             if (alpha < 0 || beta < 0 || gamma < 0) continue;
 
-            // interpolate attributes
+            // interpolate depth
             float reverseZ = 1.0f / (alpha / v[0].w() + beta / v[1].w() + gamma / v[2].w());
             float interpolate_depth = interpolate(baryCoords, w, reverseZ, depth);
-
-            Vector3f interpolated_color = interpolate(baryCoords, w, reverseZ, t.color);
-
-            Vector3f interpolated_normal = interpolate(baryCoords, w, reverseZ, t.normal);
-
-            Vector2f interpolated_texcoords = interpolate(baryCoords, w, reverseZ, t.tex_coords);
-
-            Vector3f shadingcoords[3] = {toVec3f(t.v[0]), toVec3f(t.v[1]), toVec3f(t.v[2])};
-            Vector3f interpolated_shadingcoords = interpolate(baryCoords, w, reverseZ,shadingcoords);
-
-
-            fragment_shader_payload payload( interpolated_color,
-                                             interpolated_normal.normalized(),
-                                             interpolated_texcoords,
-                                             texture ? &*texture : nullptr);
-
-            payload.view_pos = interpolated_shadingcoords;
-
-            auto pixel_color = fragment_shader(payload);
 
             int index = get_index(i, j);
             if (interpolate_depth < depth_buf[index])
             {
                 depth_buf[index] = interpolate_depth;
+
+                // interpolate attributes
+                Vector3f interpolated_color = interpolate(baryCoords, w, reverseZ, t.color);
+
+                Vector3f interpolated_normal = interpolate(baryCoords, w, reverseZ, t.normal);
+
+                Vector2f interpolated_texcoords = interpolate(baryCoords, w, reverseZ, t.tex_coords);
+
+                Vector3f vp[3]{view_pos[0], view_pos[1], view_pos[2]};
+                Vector3f interpolated_shadingcoords = interpolate(baryCoords, w, reverseZ, vp);
+
+                fragment_shader_payload payload( interpolated_color,
+                                                 interpolated_normal.normalized(),
+                                                 interpolated_texcoords,
+                                                 texture ? &*texture : nullptr);
+                payload.view_pos = interpolated_shadingcoords;
+
+                auto pixel_color = fragment_shader(payload);
+
                 set_pixel(Vector2i(i, j), pixel_color);
             }
         }
     }
-
- 
 }
 
 void rst::rasterizer::set_model(const Eigen::Matrix4f& m)
@@ -368,7 +361,7 @@ rst::rasterizer::rasterizer(int w, int h) : width(w), height(h)
     texture = std::nullopt;
 }
 
-int rst::rasterizer::get_index(int x, int y)
+int rst::rasterizer::get_index(int x, int y) const
 {
     return (height-y)*width + x;
 }
