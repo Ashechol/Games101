@@ -279,6 +279,11 @@ void rst::rasterizer::rasterize_triangle(const Triangle& t, const std::array<Eig
     int yMin = floor(std::min(v[0].y(), std::min(v[1].y(), v[2].y())));
     int yMax = ceil(std::max(v[0].y(), std::max(v[1].y(), v[2].y())));
 
+    Vector2f x4[4] = {{0.25, 0.25},
+                      {0.25, 0.75},
+                      {0.75, 0.25},
+                      {0.75, 0.75}};
+
     for (int i = xMin; i < xMax; i++)
     {
         auto x = static_cast<float>(i);
@@ -286,42 +291,54 @@ void rst::rasterizer::rasterize_triangle(const Triangle& t, const std::array<Eig
         {
             auto y = static_cast<float>(j);
 
-            auto baryCoords = computeBarycentric2D(x + 0.5f, y + 0.5f, v);
+            bool depth_test = false;
 
-            auto [alpha, beta, gamma] = baryCoords;
-
-            // vertex should pass the inside test!
-            if (alpha < 0 || beta < 0 || gamma < 0) continue;
-
-            // interpolate depth
-            float reverseZ = 1.0f / (alpha / v[0].w() + beta / v[1].w() + gamma / v[2].w());
-            float interpolate_depth = interpolate(baryCoords, w, reverseZ, depth);
-
-            int index = get_index(i, j);
-            if (interpolate_depth < depth_buf[index])
+            for (int k = 0; k < 4; k++)
             {
-                depth_buf[index] = interpolate_depth;
+                auto baryCoords = computeBarycentric2D(x + x4[k].x(), y + x4[k].y(), v);
+                auto [a, b, c] = baryCoords;
 
-                // interpolate attributes
-                Vector3f interpolated_color = interpolate(baryCoords, w, reverseZ, t.color);
+                // vertex should pass the inside test!
+                if (a < 0 || b < 0 || c < 0) continue;
 
-                Vector3f interpolated_normal = interpolate(baryCoords, w, reverseZ, t.normal);
+                // following code to get the interpolated z value.
+                // interpolate depth
+                float reverseZ = 1 / (a / v[0].w() + b / v[1].w() + c / v[2].w());
+                float interpolate_depth = interpolate(baryCoords, w, reverseZ, depth);
 
-                Vector2f interpolated_texcoords = interpolate(baryCoords, w, reverseZ, t.tex_coords);
+                int index = get_subsample_index(i, j, k);
 
-                Vector3f vp[3]{view_pos[0], view_pos[1], view_pos[2]};
-                Vector3f interpolated_shadingcoords = interpolate(baryCoords, w, reverseZ, vp);
+                if (interpolate_depth < subsample_depth_buf[index])
+                {
+                    // interpolate attributes
+                    Vector3f interpolated_color = interpolate(baryCoords, w, reverseZ, t.color);
 
-                fragment_shader_payload payload( interpolated_color,
-                                                 interpolated_normal.normalized(),
-                                                 interpolated_texcoords,
-                                                 texture ? &*texture : nullptr);
-                payload.view_pos = interpolated_shadingcoords;
+                    Vector3f interpolated_normal = interpolate(baryCoords, w, reverseZ, t.normal);
 
-                auto pixel_color = fragment_shader(payload);
+                    Vector2f interpolated_texcoords = interpolate(baryCoords, w, reverseZ, t.tex_coords);
 
-                set_pixel(Vector2i(i, j), pixel_color);
+                    Vector3f vp[3]{view_pos[0], view_pos[1], view_pos[2]};
+                    Vector3f interpolated_shadingcoords = interpolate(baryCoords, w, reverseZ, vp);
+
+                    fragment_shader_payload payload( interpolated_color,
+                                                     interpolated_normal.normalized(),
+                                                     interpolated_texcoords,
+                                                     texture ? &*texture : nullptr);
+                    payload.view_pos = interpolated_shadingcoords;
+
+                    // std::cout << index << std::endl;
+
+                    auto pixel_color = fragment_shader(payload);
+
+                    subsample_color_buf[index] = pixel_color;
+                    subsample_depth_buf[index] = interpolate_depth;
+
+                    depth_test = true;
+                }
             }
+
+            if (depth_test)
+                set_pixel(Vector2i(i, j), get_sample_color(i, j));
         }
     }
 }
@@ -346,10 +363,12 @@ void rst::rasterizer::clear(rst::Buffers buff)
     if ((buff & rst::Buffers::Color) == rst::Buffers::Color)
     {
         std::fill(frame_buf.begin(), frame_buf.end(), Eigen::Vector3f{0, 0, 0});
+        std::fill(subsample_color_buf.begin(), subsample_color_buf.end(), Eigen::Vector3f{0, 0, 0});
     }
     if ((buff & rst::Buffers::Depth) == rst::Buffers::Depth)
     {
         std::fill(depth_buf.begin(), depth_buf.end(), std::numeric_limits<float>::infinity());
+        std::fill(subsample_depth_buf.begin(), subsample_depth_buf.end(), std::numeric_limits<float>::infinity());
     }
 }
 
@@ -357,6 +376,8 @@ rst::rasterizer::rasterizer(int w, int h) : width(w), height(h)
 {
     frame_buf.resize(w * h);
     depth_buf.resize(w * h);
+    subsample_color_buf.resize(w * h * 4);
+    subsample_depth_buf.resize(w * h * 4);
 
     texture = std::nullopt;
 }
@@ -381,5 +402,30 @@ void rst::rasterizer::set_vertex_shader(std::function<Eigen::Vector3f(vertex_sha
 void rst::rasterizer::set_fragment_shader(std::function<Eigen::Vector3f(fragment_shader_payload)> frag_shader)
 {
     fragment_shader = frag_shader;
+}
+
+int rst::rasterizer::get_subsample_index(int x, int y, int k) const
+{
+    return (height - 1- y) * width * 4 + (width - 1 - x) * 4 + k;
+}
+
+float rst::rasterizer::get_sample_depth(int x, int y) const
+{
+    int index = get_subsample_index(x, y, 0);
+    float min_depth = std::numeric_limits<float>::infinity();
+    for (int i = 0; i < 4; i++)
+        min_depth = std::min(min_depth, subsample_depth_buf[index + i]);
+
+    return min_depth;
+}
+
+Vector3f rst::rasterizer::get_sample_color(int x, int y) const
+{
+    int index = get_subsample_index(x, y, 0);
+    Vector3f sum{0, 0, 0};
+    for (int i = 0; i < 4; i++)
+        sum += subsample_color_buf[index + i];
+
+    return sum / 4.0f;
 }
 
