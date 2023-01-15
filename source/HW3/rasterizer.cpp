@@ -267,6 +267,19 @@ T interpolate(std::tuple<float, float, float>baryCoords, const float* w, float r
     return interpolated * reverse;
 }
 
+std::tuple<float, float, float> find_nearest(float x, float y, const Vector4f (&v)[3])
+{
+    auto [alpha, beta, gamma] = computeBarycentric2D(x + .5f, y + .5f, v);
+
+    if (alpha >= 0 && beta >= 0 && gamma >= 0)
+        return std::tuple<float, float, float>{alpha, beta, gamma};
+
+    if (alpha < 0) return computeBarycentric2D(v[0].x(), v[0].y(), v);
+    if (beta < 0) return computeBarycentric2D(v[1].x(), v[1].y(), v);
+
+    return computeBarycentric2D(v[2].x(), v[2].y(), v);
+}
+
 //Screen space rasterization
 void rst::rasterizer::rasterize_triangle(const Triangle& t, const std::array<Eigen::Vector3f, 3>& view_pos) 
 {
@@ -287,6 +300,7 @@ void rst::rasterizer::rasterize_triangle(const Triangle& t, const std::array<Eig
     for (int i = xMin; i < xMax; i++)
     {
         auto x = static_cast<float>(i);
+
         for (int j = yMin; j < yMax; j++)
         {
             auto y = static_cast<float>(j);
@@ -307,7 +321,6 @@ void rst::rasterizer::rasterize_triangle(const Triangle& t, const std::array<Eig
                 float interpolate_depth = interpolate(baryCoords, w, reverseZ, depth);
 
                 int index = get_subsample_index(i, j, k);
-
                 if (interpolate_depth < subsample_depth_buf[index])
                 {
                     // interpolate attributes
@@ -326,19 +339,18 @@ void rst::rasterizer::rasterize_triangle(const Triangle& t, const std::array<Eig
                                                      texture ? &*texture : nullptr);
                     payload.view_pos = interpolated_shadingcoords;
 
-                    // std::cout << index << std::endl;
+                    Vector3f color = fragment_shader(payload);
 
-                    auto pixel_color = fragment_shader(payload);
-
-                    subsample_color_buf[index] = pixel_color;
+                    subsample_color_buf[index] = color;
                     subsample_depth_buf[index] = interpolate_depth;
-
                     depth_test = true;
                 }
             }
 
             if (depth_test)
+            {
                 set_pixel(Vector2i(i, j), get_sample_color(i, j));
+            }
         }
     }
 }
